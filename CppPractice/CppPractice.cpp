@@ -2,59 +2,48 @@
 
 
 long task1() {
-	// gave it some more thoughts
-	// decided not to proceed with this idea, since bottleneck here is not CPU but I/O
-	//threding wont do much asspecialy if disc is HDD
-	//After going over casts didnt notice anything special, will stick to reinterpret_cast
 
 	long sum = 0;
-	std::ifstream file("binary.dat", std::ios::in | std::ios::binary);
-	boost::circular_buffer<char[32000]> cb(2);
+
+	std::array<std::array<int8_t, 4000>, 2> buffer; //8000ints fit in half of the L1 cache 
+
 	bool flag_first, flag_second;
 
-	std::thread t1(producer_reader, flag_first, flag_second, file,cb);
-	std::thread t2(consumer_calc_sum,sum,cb, flag_first, flag_second);
+	std::thread t1(producer_reader, std::ref(flag_first), std::ref(flag_second), std::ref(buffer));
+	std::thread t2(consumer_calc_sum, std::ref(sum), std::ref(buffer), std::ref(flag_first), std::ref(flag_second));
 
 	t1.join();
 	t2.join();
 	return sum;
 
 }
-void consumer_calc_sum(long& sum, boost::circular_buffer<char[32000]>& cb, bool& flag_first, bool& flag_second) {
+void consumer_calc_sum(long& sum, std::array<std::array<int8_t, 4000>, 2> &buffer, bool& flag_first, bool& flag_second) {
 	while (true) {
 		if (flag_first || flag_second) {
 			if (flag_first) {
-				int* ptr = reinterpret_cast<int*>(cb[0]);
-				for (int i = 0; i < 1024; i++) {
-					sum += *ptr;
-					ptr++;
-				}
+				sum += std::accumulate(buffer[0].begin(), buffer[0].end(), 0);
 				flag_first = !flag_first;
 			}
 			if (flag_second) {
-				int* ptr = reinterpret_cast<int*>(cb[1]);
-				for (int i = 0; i < 1024; i++) {
-					sum += *ptr;
-					ptr++;
-				}
+				sum += std::accumulate(buffer[1].begin(), buffer[1].end(), 0);
 				flag_second = !flag_second;
 			}
 		}
 	}
 }
-void producer_reader(bool& flag_first, bool& flag_second, std::ifstream file, boost::circular_buffer<char[32000]>& cb) {
-	char buf[32000];
+void producer_reader(bool& flag_first, bool& flag_second, std::array<std::array<int8_t, 4000>, 2> &buffer) {
+	std::ifstream file("binary.dat", std::ios::in | std::ios::binary);
 	if (file.is_open())
 	{
+		int8_t* ptr = &buffer[0][0];
+		int8_t* ptr1 = &buffer[1][0];
 		while (!file.eof()) {
 			if(!flag_first){
-			file.read(buf, sizeof(buf));
-			cb.push_back(buf);
+			file.read(reinterpret_cast<char*>(ptr), sizeof(buffer[0]));
 			flag_first = !flag_first;
 			}
 			if (!flag_second) {
-				file.read(buf, sizeof(buf));
-				cb.push_back(buf);
+				file.read(reinterpret_cast<char*>(ptr1), sizeof(buffer[1]));
 				flag_second = !flag_second;
 			}
 		}

@@ -11,10 +11,12 @@
 #include <string>
 #include <queue>
 #include <map>
+#include <array>
+
+#include <numeric>
 
 #include <math.h>
 
 long task1();
-std::vector<std::pair<int, std::pair<int, int>>> task2(int input[]);
-std::vector<short> task4(std::vector<std::pair<short, short>> input);
-void calc_sum(long& sum, char* buf);
+void consumer_calc_sum(long& sum, std::array<std::array<int8_t, 4000>, 2>& buffer, bool& flag_first, bool& flag_second);
+void producer_reader(bool& flag_first, bool& flag_second,std::array<std::array<int8_t, 4000>, 2>& buffer);
